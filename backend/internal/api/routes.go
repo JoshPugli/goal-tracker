@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/JoshPugli/grindhouse-api/internal/auth"
+	"github.com/JoshPugli/grindhouse-api/internal/user"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
 
@@ -37,14 +38,14 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 
 func addRoutes(
 	mux *http.ServeMux,
-	authHandlers *auth.AuthHandlers,
+	userHandlers *user.Handlers,
 ) {
 	// Public auth routes
-	mux.HandleFunc("/api/auth/login", authHandlers.HandleLogin)
-	mux.HandleFunc("/api/auth/register", authHandlers.HandleRegister)
+	mux.HandleFunc("/api/auth/login", userHandlers.HandleLogin)
+	mux.HandleFunc("/api/auth/register", userHandlers.HandleRegister)
 	
 	// Protected routes
-	mux.Handle("/api/auth/me", auth.AuthMiddleware(http.HandlerFunc(authHandlers.HandleMe)))
+	mux.Handle("/api/auth/me", auth.AuthMiddleware(http.HandlerFunc(userHandlers.HandleMe)))
 	mux.Handle("/api/protected", auth.AuthMiddleware(http.HandlerFunc(protectedHandler)))
 	
 	// Public routes

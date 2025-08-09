@@ -1,22 +1,21 @@
-package repository
+package user
 
 import (
 	"database/sql"
 	"fmt"
 
-	"github.com/JoshPugli/grindhouse-api/internal/models"
 	"golang.org/x/crypto/bcrypt"
 )
 
-type UserRepository struct {
+type Repository struct {
 	db *sql.DB
 }
 
-func NewUserRepository(db *sql.DB) *UserRepository {
-	return &UserRepository{db: db}
+func NewRepository(db *sql.DB) *Repository {
+	return &Repository{db: db}
 }
 
-func (r *UserRepository) CreateUser(email, username, firstName, lastName, password string) (*models.User, error) {
+func (r *Repository) CreateUser(email, username, firstName, lastName, password string) (*User, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, fmt.Errorf("failed to hash password: %w", err)
@@ -33,7 +32,7 @@ func (r *UserRepository) CreateUser(email, username, firstName, lastName, passwo
 		return nil, fmt.Errorf("failed to create user: %w", err)
 	}
 
-	return &models.User{
+	return &User{
 		ID:        id,
 		Email:     email,
 		Username:  username,
@@ -42,10 +41,10 @@ func (r *UserRepository) CreateUser(email, username, firstName, lastName, passwo
 	}, nil
 }
 
-func (r *UserRepository) GetUserByEmail(email string) (*models.User, error) {
+func (r *Repository) GetUserByEmail(email string) (*User, error) {
 	query := `SELECT id, email, username, first_name, last_name, password FROM users WHERE email = $1`
 	
-	user := &models.User{}
+	user := &User{}
 	err := r.db.QueryRow(query, email).Scan(
 		&user.ID, &user.Email, &user.Username, &user.FirstName, &user.LastName, &user.Password,
 	)
@@ -59,10 +58,10 @@ func (r *UserRepository) GetUserByEmail(email string) (*models.User, error) {
 	return user, nil
 }
 
-func (r *UserRepository) GetUserByID(id string) (*models.User, error) {
+func (r *Repository) GetUserByID(id string) (*User, error) {
 	query := `SELECT id, email, username, first_name, last_name FROM users WHERE id = $1`
 	
-	user := &models.User{}
+	user := &User{}
 	err := r.db.QueryRow(query, id).Scan(
 		&user.ID, &user.Email, &user.Username, &user.FirstName, &user.LastName,
 	)
@@ -76,7 +75,7 @@ func (r *UserRepository) GetUserByID(id string) (*models.User, error) {
 	return user, nil
 }
 
-func (r *UserRepository) ValidatePassword(email, password string) (*models.User, error) {
+func (r *Repository) ValidatePassword(email, password string) (*User, error) {
 	user, err := r.GetUserByEmail(email)
 	if err != nil {
 		return nil, err

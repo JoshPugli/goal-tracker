@@ -4,10 +4,9 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/JoshPugli/grindhouse-api/internal/auth"
 	"github.com/JoshPugli/grindhouse-api/internal/database"
 	"github.com/JoshPugli/grindhouse-api/internal/middleware"
-	"github.com/JoshPugli/grindhouse-api/internal/repository"
+	"github.com/JoshPugli/grindhouse-api/internal/user"
 	
 	_ "github.com/JoshPugli/grindhouse-api/docs"
 )
@@ -22,10 +21,10 @@ func NewServer() http.Handler {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	userRepo := repository.NewUserRepository(db)
-	authHandlers := auth.NewAuthHandlers(userRepo)
+	userRepo := user.NewRepository(db)
+	userHandlers := user.NewHandlers(userRepo)
 
-	addRoutes(mux, authHandlers)
+	addRoutes(mux, userHandlers)
 
 	return middleware.CORS(mux)
 }

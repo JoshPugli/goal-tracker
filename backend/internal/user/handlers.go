@@ -1,19 +1,19 @@
-// Package auth provides authentication handlers and middleware
-package auth
+// Package user provides user-related handlers and business logic
+package user
 
 import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/JoshPugli/grindhouse-api/internal/repository"
+	"github.com/JoshPugli/grindhouse-api/internal/auth"
 )
 
-type AuthHandlers struct {
-	userRepo *repository.UserRepository
+type Handlers struct {
+	userRepo *Repository
 }
 
-func NewAuthHandlers(userRepo *repository.UserRepository) *AuthHandlers {
-	return &AuthHandlers{
+func NewHandlers(userRepo *Repository) *Handlers {
+	return &Handlers{
 		userRepo: userRepo,
 	}
 }
@@ -48,7 +48,7 @@ type AuthResponse struct {
 // @Failure 401 {string} string "Invalid credentials"
 // @Failure 500 {string} string "Failed to generate token"
 // @Router /api/auth/login [post]
-func (h *AuthHandlers) HandleLogin(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -66,7 +66,7 @@ func (h *AuthHandlers) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := GenerateJWT(user.ID)
+	token, err := auth.GenerateJWT(user.ID)
 	if err != nil {
 		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
 		return
@@ -99,7 +99,7 @@ func (h *AuthHandlers) HandleLogin(w http.ResponseWriter, r *http.Request) {
 // @Failure 409 {string} string "User already exists"
 // @Failure 500 {string} string "Failed to generate token"
 // @Router /api/auth/register [post]
-func (h *AuthHandlers) HandleRegister(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -122,7 +122,7 @@ func (h *AuthHandlers) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := GenerateJWT(user.ID)
+	token, err := auth.GenerateJWT(user.ID)
 	if err != nil {
 		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
 		return
@@ -154,13 +154,13 @@ func (h *AuthHandlers) HandleRegister(w http.ResponseWriter, r *http.Request) {
 // @Failure 401 {string} string "User not found in context"
 // @Failure 404 {string} string "User not found"
 // @Router /api/auth/me [get]
-func (h *AuthHandlers) HandleMe(w http.ResponseWriter, r *http.Request) {
+func (h *Handlers) HandleMe(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	userID, ok := GetUserIDFromContext(r.Context())
+	userID, ok := auth.GetUserIDFromContext(r.Context())
 	if !ok {
 		http.Error(w, "User not found in context", http.StatusUnauthorized)
 		return
