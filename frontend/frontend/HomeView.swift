@@ -10,11 +10,11 @@ struct HomeView: View {
         NavigationStack {
             VStack(spacing: 24) {
 
-                // Counters: X/total with bigger type and padding
+                // Counters from backend stats
                 VStack(alignment: .leading, spacing: 12) {
-                    CounterLine(value: vm.completedCount(.month), total: vm.totalCapacity(.month), suffix: "m", size: 84, opacity: 1.0)
-                    CounterLine(value: vm.completedCount(.week),  total: vm.totalCapacity(.week),  suffix: "w", size: 72, opacity: 0.72)
-                    CounterLine(value: vm.completedCount(.day),   total: vm.totalCapacity(.day),   suffix: "d", size: 60, opacity: 0.5)
+                    CounterLine(value: vm.statsMonth?.completed ?? 0, total: vm.statsMonth?.total ?? 0, suffix: "m", size: 84, opacity: 1.0)
+                    CounterLine(value: vm.statsWeek?.completed  ?? 0, total: vm.statsWeek?.total  ?? 0, suffix: "w", size: 72, opacity: 0.72)
+                    CounterLine(value: vm.statsDay?.completed   ?? 0, total: vm.statsDay?.total   ?? 0, suffix: "d", size: 60, opacity: 0.5)
                 }
                 .padding(.horizontal)
                 .padding(.top, 12)
@@ -104,6 +104,7 @@ struct HomeView: View {
                 }
             }
         }
+        .task { await vm.refreshAll() }
         .sheet(isPresented: $showSettings) {
             SettingsView()
                 .presentationDetents([.medium])
@@ -142,10 +143,10 @@ private struct TodayGoalsSheet: View {
                 Section(header: Text("Today")) {
                     ForEach(vm.todayStates) { state in
                         HStack {
-                            Text(state.habit.name)
+                            Text(state.goal.name)
                             Spacer()
                             Button {
-                                vm.toggleToday(for: state.habit)
+                                Task { await vm.toggleToday(for: state.goal) }
                             } label: {
                                 Image(systemName: state.completed ? "checkmark.circle.fill" : "circle")
                                     .foregroundStyle(state.completed ? .green : .secondary)
@@ -171,83 +172,94 @@ private struct TodayGoalsSheet: View {
 // MARK: - ViewModel + Models
 
 final class HabitViewModel: ObservableObject {
-    enum Window { case day, week, month }
-
-    @Published var habits: [Habit] = [
-        Habit(name: "Drink water"),
-        Habit(name: "Read 20 min"),
-        Habit(name: "Exercise"),
-    ]
-
-    // All completion events across time
-    @Published private(set) var completions: [HabitCompletion] = SampleData.seededCompletions
-
-    // Derived: today’s state for each habit
-    var todayStates: [HabitState] {
-        habits.map { habit in
-            HabitState(habit: habit, completed: isCompletedToday(habit))
-        }
+    // Backend models
+    struct Goal: Identifiable, Codable, Hashable {
+        let id: String
+        let name: String
     }
 
-    var todayCompletedCount: Int {
-        todayStates.filter { $0.completed }.count
+    struct TodayState: Identifiable, Codable {
+        var id: String { goal.id }
+        let goal: Goal
+        let completed: Bool
     }
 
-    var todayRemainingCount: Int {
-        max(habits.count - todayCompletedCount, 0)
+    struct Stats: Codable {
+        let window: String
+        let completed: Int
+        let total: Int
     }
 
-    func completedCount(_ window: Window) -> Int {
-        let now = Date()
-        let cal = Calendar.current
-        return completions.filter { comp in
-            switch window {
-            case .day:
-                return cal.isDate(comp.date, inSameDayAs: now)
-            case .week:
-                guard
-                    let s1 = cal.dateInterval(of: .weekOfYear, for: comp.date),
-                    let s2 = cal.dateInterval(of: .weekOfYear, for: now)
-                else { return false }
-                return s1 == s2
-            case .month:
-                return cal.component(.year, from: comp.date) == cal.component(.year, from: now)
-                && cal.component(.month, from: comp.date) == cal.component(.month, from: now)
+    // Published state
+    @Published var todayStates: [TodayState] = []
+    @Published var statsDay: Stats?
+    @Published var statsWeek: Stats?
+    @Published var statsMonth: Stats?
+
+    // Derived
+    var habits: [Goal] { todayStates.map { $0.goal } }
+    var todayCompletedCount: Int { todayStates.filter { $0.completed }.count }
+    var todayRemainingCount: Int { max(habits.count - todayCompletedCount, 0) }
+
+    // Networking
+    private let baseURL = URL(string: "http://localhost:8000")!
+
+    func refreshAll() async {
+        async let day: Stats = fetchStats(window: "day")
+        async let week: Stats = fetchStats(window: "week")
+        async let month: Stats = fetchStats(window: "month")
+        async let today: [TodayState] = request(path: "/api/goals/today")
+        do {
+            let (d, w, m, t) = try await (day, week, month, today)
+            await MainActor.run {
+                self.statsDay = d
+                self.statsWeek = w
+                self.statsMonth = m
+                self.todayStates = t
             }
-        }.count
-    }
-
-    func toggleToday(for habit: Habit) {
-        if let idx = completions.firstIndex(where: { $0.habitID == habit.id && Calendar.current.isDateInToday($0.date) }) {
-            completions.remove(at: idx) // uncheck
-        } else {
-            completions.append(HabitCompletion(habitID: habit.id, date: Date()))
-        }
-        objectWillChange.send()
-    }
-
-    private func isCompletedToday(_ habit: Habit) -> Bool {
-        completions.contains { $0.habitID == habit.id && Calendar.current.isDateInToday($0.date) }
-    }
-
-    func totalCapacity(_ window: Window) -> Int {
-        let n = habits.count
-        switch window {
-        case .day:
-            return n
-        case .week:
-            return n * daysInCurrentWeek
-        case .month:
-            return n * daysInCurrentMonth
+        } catch {
+            // TODO: handle error (e.g., set an error state)
         }
     }
 
-    private var daysInCurrentWeek: Int { 7 }
-
-    private var daysInCurrentMonth: Int {
-        Calendar.current.range(of: .day, in: .month, for: Date())?.count ?? 30
+    func toggleToday(for goal: Goal) async {
+        let isCompleted = todayStates.first(where: { $0.goal.id == goal.id })?.completed ?? false
+        let method = isCompleted ? "DELETE" : "POST"
+        let url = baseURL.appendingPathComponent("/api/goals/\(goal.id)/complete")
+        var req = URLRequest(url: url)
+        req.httpMethod = method
+        do {
+            _ = try await URLSession.shared.data(for: req)
+            // refresh minimal state
+            async let day: Stats = fetchStats(window: "day")
+            async let today: [TodayState] = request(path: "/api/goals/today")
+            let (d, t) = try await (day, today)
+            await MainActor.run {
+                self.statsDay = d
+                self.todayStates = t
+            }
+        } catch {
+            // TODO: handle error
+        }
     }
 
+    private func fetchStats(window: String) async throws -> Stats {
+        let encoded = window.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? window
+        return try await request(path: "/api/stats?window=\(encoded)")
+    }
+
+    private func request<T: Decodable>(path: String) async throws -> T {
+        let url = baseURL.appendingPathComponent(path)
+        var req = URLRequest(url: url)
+        req.setValue("application/json", forHTTPHeaderField: "Accept")
+        let (data, resp) = try await URLSession.shared.data(for: req)
+        guard let http = resp as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
+            throw URLError(.badServerResponse)
+        }
+        return try JSONDecoder().decode(T.self, from: data)
+    }
+
+    // Competition UI state (local for now)
     @Published var competitions: [Competition]
     @Published var selectedCompetition: Competition
 
@@ -262,37 +274,7 @@ final class HabitViewModel: ObservableObject {
     }
 }
 
-struct Habit: Identifiable, Hashable {
-    let id: UUID = UUID()
-    var name: String
-}
-
-struct HabitCompletion: Identifiable, Hashable {
-    let id: UUID = UUID()
-    let habitID: UUID
-    let date: Date
-}
-
-struct HabitState: Identifiable {
-    let id = UUID()
-    let habit: Habit
-    let completed: Bool
-}
-
-enum SampleData {
-    static var seededCompletions: [HabitCompletion] {
-        let cal = Calendar.current
-        let now = Date()
-        let daysAgo = { (d: Int) in cal.date(byAdding: .day, value: -d, to: now)! }
-
-        // A few example completions in the past days/weeks for counters
-        return [
-            HabitCompletion(habitID: UUID(), date: daysAgo(20)), // random habit in month
-            HabitCompletion(habitID: UUID(), date: daysAgo(6)),  // last week
-            HabitCompletion(habitID: UUID(), date: daysAgo(1)),  // yesterday
-        ]
-    }
-}
+// Removed old local models in favor of backend integration
 
 struct Competition: Identifiable, Hashable {
     let id: UUID = UUID()

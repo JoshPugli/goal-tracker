@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/JoshPugli/grindhouse-api/internal/auth"
+	"github.com/JoshPugli/grindhouse-api/internal/goals"
 	"github.com/JoshPugli/grindhouse-api/internal/database"
 	"github.com/JoshPugli/grindhouse-api/internal/middleware"
 	"github.com/JoshPugli/grindhouse-api/internal/repository"
@@ -16,6 +17,9 @@ import (
 // like CORS, auth middleware, and logging
 func NewServer() http.Handler {
 	mux := http.NewServeMux()
+
+	goalsStore := goals.NewStore()
+	goalsHandlers := goals.NewHandlers(goalsStore)
 	
 	db, err := database.NewConnection()
 	if err != nil {
@@ -26,6 +30,7 @@ func NewServer() http.Handler {
 	authHandlers := auth.NewAuthHandlers(userRepo)
 
 	addRoutes(mux, authHandlers)
+	addGoalRoutes(mux, goalsHandlers)
 
 	return middleware.CORS(mux)
 }
