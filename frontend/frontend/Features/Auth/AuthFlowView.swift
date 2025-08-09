@@ -1,20 +1,5 @@
 import SwiftUI
 
-struct RootView: View {
-    @EnvironmentObject var auth: AuthManager
-    @State private var showAuthSheet = false
-
-    var body: some View {
-        Group {
-            if auth.token == nil {
-                AuthFlowView()
-            } else {
-                HomeView()
-            }
-        }
-    }
-}
-
 struct AuthFlowView: View {
     @EnvironmentObject var auth: AuthManager
     @State private var email = ""
@@ -29,22 +14,18 @@ struct AuthFlowView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section {
-                    TextField("Email", text: $email).keyboardType(.emailAddress).textContentType(.username)
-                    SecureField("Password", text: $password).textContentType(.password)
-                }
                 if isRegister {
-                    Section(header: Text("Profile")) {
-                        TextField("Username", text: $username)
-                        TextField("First name", text: $first)
-                        TextField("Last name", text: $last)
-                    }
+                    RegisterForm(email: $email, password: $password, username: $username, first: $first, last: $last)
+                } else {
+                    LoginForm(email: $email, password: $password)
                 }
+
                 if let msg = errorMsg { Text(msg).foregroundStyle(.red) }
+
                 Button(action: submit) {
                     if loading { ProgressView() } else { Text(isRegister ? "Create Account" : "Sign In") }
                 }
-                .disabled(loading || email.isEmpty || password.isEmpty || (isRegister && (username.isEmpty)))
+                .disabled(loading || email.isEmpty || password.isEmpty || (isRegister && username.isEmpty))
 
                 Button(isRegister ? "Have an account? Sign in" : "Need an account? Register") {
                     isRegister.toggle()
