@@ -25,9 +25,7 @@ type LoginRequest struct {
 
 type RegisterRequest struct {
 	Email     string `json:"email"`
-	Username  string `json:"username"`
 	FirstName string `json:"first_name"`
-	LastName  string `json:"last_name"`
 	Password  string `json:"password"`
 }
 
@@ -77,9 +75,7 @@ func (h *Handlers) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		User: map[string]any{
 			"id":         user.ID,
 			"email":      user.Email,
-			"username":   user.Username,
 			"first_name": user.FirstName,
-			"last_name":  user.LastName,
 		},
 	}
 
@@ -111,12 +107,12 @@ func (h *Handlers) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.Email == "" || req.Password == "" || req.Username == "" {
+	if req.Email == "" || req.Password == ""  {
 		http.Error(w, "Email, username, and password are required", http.StatusBadRequest)
 		return
 	}
 
-	user, err := h.userRepo.CreateUser(req.Email, req.Username, req.FirstName, req.LastName, req.Password)
+	user, err := h.userRepo.CreateUser(req.Email, req.FirstName, req.Password)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusConflict)
 		return
@@ -133,9 +129,7 @@ func (h *Handlers) HandleRegister(w http.ResponseWriter, r *http.Request) {
 		User: map[string]any{
 			"id":         user.ID,
 			"email":      user.Email,
-			"username":   user.Username,
 			"first_name": user.FirstName,
-			"last_name":  user.LastName,
 		},
 	}
 
@@ -175,9 +169,7 @@ func (h *Handlers) HandleMe(w http.ResponseWriter, r *http.Request) {
 	userResponse := map[string]any{
 		"id":         user.ID,
 		"email":      user.Email,
-		"username":   user.Username,
 		"first_name": user.FirstName,
-		"last_name":  user.LastName,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
