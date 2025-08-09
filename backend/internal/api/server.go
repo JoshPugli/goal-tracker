@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/JoshPugli/grindhouse-api/internal/database"
+	"github.com/JoshPugli/grindhouse-api/internal/goals"
 	"github.com/JoshPugli/grindhouse-api/internal/middleware"
 	"github.com/JoshPugli/grindhouse-api/internal/user"
 	
@@ -23,8 +24,11 @@ func NewServer() http.Handler {
 
 	userRepo := user.NewRepository(db)
 	userHandlers := user.NewHandlers(userRepo)
+	
+	goalRepo := goals.NewRepository(db)
+	goalHandlers := goals.NewHandlers(goalRepo)
 
-	addRoutes(mux, userHandlers)
+	addRoutes(mux, userHandlers, goalHandlers)
 
 	return middleware.CORS(mux)
 }

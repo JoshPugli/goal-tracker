@@ -1,18 +1,112 @@
 definitions:
-  auth.AuthResponse:
+  goals.CreateGoalRequest:
+    properties:
+      description:
+        type: string
+      goal_type:
+        $ref: '#/definitions/goals.GoalType'
+      target_value:
+        type: number
+      title:
+        type: string
+      unit:
+        type: string
+    type: object
+  goals.DailyGoalInstance:
+    properties:
+      completed_at:
+        type: string
+      completed_value:
+        type: number
+      created_at:
+        type: string
+      date:
+        type: string
+      goal_id:
+        type: string
+      id:
+        type: string
+      is_completed:
+        type: boolean
+      target_value:
+        type: number
+      user_id:
+        type: string
+    type: object
+  goals.Goal:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      goal_type:
+        $ref: '#/definitions/goals.GoalType'
+      id:
+        type: string
+      is_active:
+        type: boolean
+      target_value:
+        type: number
+      title:
+        type: string
+      unit:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  goals.GoalType:
+    enum:
+    - boolean
+    - numeric
+    - duration
+    type: string
+    x-enum-varnames:
+    - GoalTypeBoolean
+    - GoalTypeNumeric
+    - GoalTypeDuration
+  goals.GoalWithTodayInstance:
+    properties:
+      goal:
+        $ref: '#/definitions/goals.Goal'
+      today_instance:
+        $ref: '#/definitions/goals.DailyGoalInstance'
+    type: object
+  goals.UpdateDailyInstanceRequest:
+    properties:
+      completed_value:
+        type: number
+      is_completed:
+        type: boolean
+    type: object
+  goals.UpdateGoalRequest:
+    properties:
+      description:
+        type: string
+      is_active:
+        type: boolean
+      target_value:
+        type: number
+      title:
+        type: string
+      unit:
+        type: string
+    type: object
+  user.AuthResponse:
     properties:
       token:
         type: string
       user: {}
     type: object
-  auth.LoginRequest:
+  user.LoginRequest:
     properties:
       email:
         type: string
       password:
         type: string
     type: object
-  auth.RegisterRequest:
+  user.RegisterRequest:
     properties:
       email:
         type: string
@@ -39,14 +133,14 @@ paths:
         name: login
         required: true
         schema:
-          $ref: '#/definitions/auth.LoginRequest'
+          $ref: '#/definitions/user.LoginRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/auth.AuthResponse'
+            $ref: '#/definitions/user.AuthResponse'
         "400":
           description: Invalid JSON
           schema:
@@ -97,14 +191,14 @@ paths:
         name: register
         required: true
         schema:
-          $ref: '#/definitions/auth.RegisterRequest'
+          $ref: '#/definitions/user.RegisterRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/auth.AuthResponse'
+            $ref: '#/definitions/user.AuthResponse'
         "400":
           description: Invalid JSON or missing required fields
           schema:
@@ -120,6 +214,293 @@ paths:
       summary: User registration
       tags:
       - auth
+  /api/goals:
+    get:
+      description: Get all active goals for the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/goals.Goal'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Get user's goals
+      tags:
+      - goals
+    post:
+      consumes:
+      - application/json
+      description: Create a new goal for the authenticated user
+      parameters:
+      - description: Goal data
+        in: body
+        name: goal
+        required: true
+        schema:
+          $ref: '#/definitions/goals.CreateGoalRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/goals.Goal'
+        "400":
+          description: Invalid JSON or validation error
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Create a new goal
+      tags:
+      - goals
+  /api/goals/{goalId}/daily:
+    put:
+      consumes:
+      - application/json
+      description: Update a daily goal instance for a specific date
+      parameters:
+      - description: Goal ID
+        in: path
+        name: goalId
+        required: true
+        type: string
+      - description: Date (YYYY-MM-DD format, defaults to today)
+        in: query
+        name: date
+        type: string
+      - description: Daily instance data
+        in: body
+        name: instance
+        required: true
+        schema:
+          $ref: '#/definitions/goals.UpdateDailyInstanceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/goals.DailyGoalInstance'
+        "400":
+          description: Invalid JSON or date format
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "404":
+          description: Goal not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Update daily goal instance
+      tags:
+      - goals
+  /api/goals/{goalId}/history:
+    get:
+      description: Get daily instances for a goal within a date range
+      parameters:
+      - description: Goal ID
+        in: path
+        name: goalId
+        required: true
+        type: string
+      - description: Start date (YYYY-MM-DD format, defaults to 30 days ago)
+        in: query
+        name: startDate
+        type: string
+      - description: End date (YYYY-MM-DD format, defaults to today)
+        in: query
+        name: endDate
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/goals.DailyGoalInstance'
+            type: array
+        "400":
+          description: Invalid date format
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "404":
+          description: Goal not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Get goal history
+      tags:
+      - goals
+  /api/goals/{id}:
+    delete:
+      description: Soft delete a specific goal by ID for the authenticated user
+      parameters:
+      - description: Goal ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "404":
+          description: Goal not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Delete a goal
+      tags:
+      - goals
+    get:
+      description: Get a specific goal by ID for the authenticated user
+      parameters:
+      - description: Goal ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/goals.Goal'
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "404":
+          description: Goal not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Get a specific goal
+      tags:
+      - goals
+    put:
+      consumes:
+      - application/json
+      description: Update a specific goal by ID for the authenticated user
+      parameters:
+      - description: Goal ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated goal data
+        in: body
+        name: goal
+        required: true
+        schema:
+          $ref: '#/definitions/goals.UpdateGoalRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/goals.Goal'
+        "400":
+          description: Invalid JSON
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "404":
+          description: Goal not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Update a goal
+      tags:
+      - goals
+  /api/goals/today:
+    get:
+      description: Get all active goals for the authenticated user with today's daily
+        instances
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/goals.GoalWithTodayInstance'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Get user's goals with today's instances
+      tags:
+      - goals
   /api/health:
     get:
       description: Check if the API is running

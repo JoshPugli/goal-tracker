@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/JoshPugli/grindhouse-api/internal/auth"
+	"github.com/JoshPugli/grindhouse-api/internal/goals"
 	"github.com/JoshPugli/grindhouse-api/internal/user"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 )
@@ -39,6 +40,7 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 func addRoutes(
 	mux *http.ServeMux,
 	userHandlers *user.Handlers,
+	goalHandlers *goals.Handlers,
 ) {
 	// Public auth routes
 	mux.HandleFunc("/api/auth/login", userHandlers.HandleLogin)
@@ -47,6 +49,45 @@ func addRoutes(
 	// Protected routes
 	mux.Handle("/api/auth/me", auth.AuthMiddleware(http.HandlerFunc(userHandlers.HandleMe)))
 	mux.Handle("/api/protected", auth.AuthMiddleware(http.HandlerFunc(protectedHandler)))
+	
+	// Goal routes
+	mux.Handle("/api/goals", auth.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			goalHandlers.HandleCreateGoal(w, r)
+		case http.MethodGet:
+			goalHandlers.HandleGetGoals(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})))
+	mux.Handle("/api/goals/today", auth.AuthMiddleware(http.HandlerFunc(goalHandlers.HandleGetGoalsToday)))
+	mux.Handle("/api/goals/", auth.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if path == "/api/goals/" {
+			switch r.Method {
+			case http.MethodGet:
+				goalHandlers.HandleGetGoals(w, r)
+			default:
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+		} else if len(path) > 12 && path[len(path)-8:] == "/history" {
+			goalHandlers.HandleGetGoalHistory(w, r)
+		} else if len(path) > 10 && path[len(path)-6:] == "/daily" {
+			goalHandlers.HandleUpdateDailyInstance(w, r)
+		} else {
+			switch r.Method {
+			case http.MethodGet:
+				goalHandlers.HandleGetGoal(w, r)
+			case http.MethodPut:
+				goalHandlers.HandleUpdateGoal(w, r)
+			case http.MethodDelete:
+				goalHandlers.HandleDeleteGoal(w, r)
+			default:
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+		}
+	})))
 	
 	// Public routes
 	mux.HandleFunc("/api/health", healthHandler)
