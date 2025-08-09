@@ -203,7 +203,7 @@ final class HabitViewModel: ObservableObject {
 
     // Networking
     // Development: point to ngrok tunnel for on-device testing
-    private let baseURL = URL(string: "https://48458bf86bcf.ngrok-free.app")!
+    private let baseURL = AuthManager.shared.baseURL
 
     func refreshAll() async {
         struct Dashboard: Codable {
@@ -242,6 +242,7 @@ final class HabitViewModel: ObservableObject {
         let method = isCompleted ? "DELETE" : "POST"
         let url = URL(string: "/api/goals/\(goal.id)/complete", relativeTo: baseURL)!
         var req = URLRequest(url: url)
+        AuthManager.shared.attachAuth(to: &req)
         req.httpMethod = method
         do {
             // Optimistically update UI
@@ -283,6 +284,7 @@ final class HabitViewModel: ObservableObject {
             throw URLError(.badURL)
         }
         var req = URLRequest(url: url)
+        AuthManager.shared.attachAuth(to: &req)
         req.setValue("application/json", forHTTPHeaderField: "Accept")
         let (data, resp) = try await URLSession.shared.data(for: req)
         guard let http = resp as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
