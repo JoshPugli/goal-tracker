@@ -1,6 +1,7 @@
 package goals
 
 import (
+	"sort"
 	"sync"
 	"time"
 )
@@ -42,6 +43,12 @@ func (s *Store) ListGoals(userID string) []Goal {
 	for _, g := range userGoals {
 		out = append(out, g)
 	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Name == out[j].Name {
+			return out[i].ID < out[j].ID
+		}
+		return out[i].Name < out[j].Name
+	})
 	return out
 }
 
@@ -88,6 +95,12 @@ func (s *Store) TodayState(userID string) []TodayState {
 	for _, g := range userGoals {
 		out = append(out, TodayState{Goal: g, Completed: s.isCompletedTodayLocked(userID, g.ID)})
 	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Goal.Name == out[j].Goal.Name {
+			return out[i].Goal.ID < out[j].Goal.ID
+		}
+		return out[i].Goal.Name < out[j].Goal.Name
+	})
 	return out
 }
 

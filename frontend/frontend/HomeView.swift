@@ -181,7 +181,7 @@ final class HabitViewModel: ObservableObject {
     struct TodayState: Identifiable, Codable {
         var id: String { goal.id }
         let goal: Goal
-        let completed: Bool
+        var completed: Bool
     }
 
     struct Stats: Codable {
@@ -244,20 +244,31 @@ final class HabitViewModel: ObservableObject {
         var req = URLRequest(url: url)
         req.httpMethod = method
         do {
-            _ = try await URLSession.shared.data(for: req)
-            // refresh all stats + today state so weekly/monthly counters update
-            async let day: Stats = fetchStats(window: "day")
-            async let week: Stats = fetchStats(window: "week")
-            async let month: Stats = fetchStats(window: "month")
-            async let today: [TodayState] = request(path: "/api/goals/today")
-            let (d, w, m, t) = try await (day, week, month, today)
+            // Optimistically update UI
             await MainActor.run {
-                self.statsDay = d
-                self.statsWeek = w
-                self.statsMonth = m
-                self.todayStates = t
+                if let idx = self.todayStates.firstIndex(where: { $0.goal.id == goal.id }) {
+                    self.todayStates[idx].completed.toggle()
+                }
+            }
+
+            _ = try await URLSession.shared.data(for: req)
+
+            // Pull fresh dashboard in one round trip
+            struct Dashboard: Codable { let stats_day: Stats; let stats_week: Stats; let stats_month: Stats; let today: [TodayState] }
+            let dash: Dashboard = try await request(path: "/api/dashboard")
+            await MainActor.run {
+                self.statsDay = dash.stats_day
+                self.statsWeek = dash.stats_week
+                self.statsMonth = dash.stats_month
+                self.todayStates = dash.today
             }
         } catch {
+            // Revert optimistic change on failure
+            await MainActor.run {
+                if let idx = self.todayStates.firstIndex(where: { $0.goal.id == goal.id }) {
+                    self.todayStates[idx].completed.toggle()
+                }
+            }
             // TODO: handle error
         }
     }
