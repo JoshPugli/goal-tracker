@@ -1,3 +1,4 @@
+// Package auth provides authentication handlers and middleware
 package auth
 
 import (
@@ -35,6 +36,18 @@ type AuthResponse struct {
 	User  any    `json:"user"`
 }
 
+// HandleLogin godoc
+// @Summary User login
+// @Description Authenticate user with email and password
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param login body LoginRequest true "Login credentials"
+// @Success 200 {object} AuthResponse
+// @Failure 400 {string} string "Invalid JSON"
+// @Failure 401 {string} string "Invalid credentials"
+// @Failure 500 {string} string "Failed to generate token"
+// @Router /api/auth/login [post]
 func (h *AuthHandlers) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -74,6 +87,18 @@ func (h *AuthHandlers) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+// HandleRegister godoc
+// @Summary User registration
+// @Description Register a new user account
+// @Tags auth
+// @Accept json
+// @Produce json
+// @Param register body RegisterRequest true "User registration data"
+// @Success 201 {object} AuthResponse
+// @Failure 400 {string} string "Invalid JSON or missing required fields"
+// @Failure 409 {string} string "User already exists"
+// @Failure 500 {string} string "Failed to generate token"
+// @Router /api/auth/register [post]
 func (h *AuthHandlers) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -119,6 +144,16 @@ func (h *AuthHandlers) HandleRegister(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+// HandleMe godoc
+// @Summary Get current user
+// @Description Get the currently authenticated user's information
+// @Tags auth
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} map[string]interface{}
+// @Failure 401 {string} string "User not found in context"
+// @Failure 404 {string} string "User not found"
+// @Router /api/auth/me [get]
 func (h *AuthHandlers) HandleMe(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -137,7 +172,7 @@ func (h *AuthHandlers) HandleMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userResponse := map[string]interface{}{
+	userResponse := map[string]any{
 		"id":         user.ID,
 		"email":      user.Email,
 		"username":   user.Username,

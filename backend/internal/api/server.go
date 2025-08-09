@@ -8,6 +8,8 @@ import (
 	"github.com/JoshPugli/grindhouse-api/internal/database"
 	"github.com/JoshPugli/grindhouse-api/internal/middleware"
 	"github.com/JoshPugli/grindhouse-api/internal/repository"
+	
+	_ "github.com/JoshPugli/grindhouse-api/docs"
 )
 
 // constructor is responsible for all the top-level HTTP stuff that applies to all endpoints,
