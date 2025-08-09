@@ -157,6 +157,102 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/goals": {
+            "get": {
+                "description": "Get the catalog of goals for the current user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "goals"
+                ],
+                "summary": "List goals",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/goals.Goal"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/goals/today": {
+            "get": {
+                "description": "For each goal, whether it's completed today",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "goals"
+                ],
+                "summary": "Today's completion state",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/goals.TodayState"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/goals/{id}/complete": {
+            "post": {
+                "description": "Mark or unmark a goal as completed for today",
+                "tags": [
+                    "goals"
+                ],
+                "summary": "Toggle completion for today",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Goal ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "description": "Mark or unmark a goal as completed for today",
+                "tags": [
+                    "goals"
+                ],
+                "summary": "Toggle completion for today",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Goal ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/health": {
             "get": {
                 "description": "Check if the API is running",
@@ -207,6 +303,40 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/api/stats": {
+            "get": {
+                "description": "Completion stats over a time window",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "goals"
+                ],
+                "summary": "Stats by window",
+                "parameters": [
+                    {
+                        "enum": [
+                            "day",
+                            "week",
+                            "month"
+                        ],
+                        "type": "string",
+                        "default": "day",
+                        "description": "Time window",
+                        "name": "window",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/goals.Stats"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -247,6 +377,42 @@ const docTemplate = `{
                 },
                 "username": {
                     "type": "string"
+                }
+            }
+        },
+        "goals.Goal": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "goals.Stats": {
+            "type": "object",
+            "properties": {
+                "completed": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "window": {
+                    "type": "string"
+                }
+            }
+        },
+        "goals.TodayState": {
+            "type": "object",
+            "properties": {
+                "completed": {
+                    "type": "boolean"
+                },
+                "goal": {
+                    "$ref": "#/definitions/goals.Goal"
                 }
             }
         }
