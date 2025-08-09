@@ -146,6 +146,26 @@
                 }
             }
         },
+        "/api/dashboard": {
+            "get": {
+                "description": "Returns day/week/month stats and today's states in a single response",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "goals"
+                ],
+                "summary": "Dashboard aggregate",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/goals.DashboardResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/goals": {
             "get": {
                 "description": "Get the catalog of goals for the current user",
@@ -366,6 +386,26 @@
                 },
                 "username": {
                     "type": "string"
+                }
+            }
+        },
+        "goals.DashboardResponse": {
+            "type": "object",
+            "properties": {
+                "stats_day": {
+                    "$ref": "#/definitions/goals.Stats"
+                },
+                "stats_month": {
+                    "$ref": "#/definitions/goals.Stats"
+                },
+                "stats_week": {
+                    "$ref": "#/definitions/goals.Stats"
+                },
+                "today": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/goals.TodayState"
+                    }
                 }
             }
         },

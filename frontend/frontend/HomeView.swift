@@ -202,40 +202,59 @@ final class HabitViewModel: ObservableObject {
     var todayRemainingCount: Int { max(habits.count - todayCompletedCount, 0) }
 
     // Networking
-    private let baseURL = URL(string: "http://localhost:8000")!
+    // Development: point to ngrok tunnel for on-device testing
+    private let baseURL = URL(string: "https://48458bf86bcf.ngrok-free.app")!
 
     func refreshAll() async {
-        async let day: Stats = fetchStats(window: "day")
-        async let week: Stats = fetchStats(window: "week")
-        async let month: Stats = fetchStats(window: "month")
-        async let today: [TodayState] = request(path: "/api/goals/today")
+        struct Dashboard: Codable {
+            let stats_day: Stats
+            let stats_week: Stats
+            let stats_month: Stats
+            let today: [TodayState]
+        }
         do {
-            let (d, w, m, t) = try await (day, week, month, today)
+            let dash: Dashboard = try await request(path: "/api/dashboard")
             await MainActor.run {
-                self.statsDay = d
-                self.statsWeek = w
-                self.statsMonth = m
-                self.todayStates = t
+                self.statsDay = dash.stats_day
+                self.statsWeek = dash.stats_week
+                self.statsMonth = dash.stats_month
+                self.todayStates = dash.today
             }
         } catch {
-            // TODO: handle error (e.g., set an error state)
+            // Fallback to individual calls if dashboard not available
+            async let day: Stats = fetchStats(window: "day")
+            async let week: Stats = fetchStats(window: "week")
+            async let month: Stats = fetchStats(window: "month")
+            async let today: [TodayState] = request(path: "/api/goals/today")
+            if let (d, w, m, t) = try? await (day, week, month, today) {
+                await MainActor.run {
+                    self.statsDay = d
+                    self.statsWeek = w
+                    self.statsMonth = m
+                    self.todayStates = t
+                }
+            }
         }
     }
 
     func toggleToday(for goal: Goal) async {
         let isCompleted = todayStates.first(where: { $0.goal.id == goal.id })?.completed ?? false
         let method = isCompleted ? "DELETE" : "POST"
-        let url = baseURL.appendingPathComponent("/api/goals/\(goal.id)/complete")
+        let url = URL(string: "/api/goals/\(goal.id)/complete", relativeTo: baseURL)!
         var req = URLRequest(url: url)
         req.httpMethod = method
         do {
             _ = try await URLSession.shared.data(for: req)
-            // refresh minimal state
+            // refresh all stats + today state so weekly/monthly counters update
             async let day: Stats = fetchStats(window: "day")
+            async let week: Stats = fetchStats(window: "week")
+            async let month: Stats = fetchStats(window: "month")
             async let today: [TodayState] = request(path: "/api/goals/today")
-            let (d, t) = try await (day, today)
+            let (d, w, m, t) = try await (day, week, month, today)
             await MainActor.run {
                 self.statsDay = d
+                self.statsWeek = w
+                self.statsMonth = m
                 self.todayStates = t
             }
         } catch {
@@ -249,7 +268,9 @@ final class HabitViewModel: ObservableObject {
     }
 
     private func request<T: Decodable>(path: String) async throws -> T {
-        let url = baseURL.appendingPathComponent(path)
+        guard let url = URL(string: path, relativeTo: baseURL) else {
+            throw URLError(.badURL)
+        }
         var req = URLRequest(url: url)
         req.setValue("application/json", forHTTPHeaderField: "Accept")
         let (data, resp) = try await URLSession.shared.data(for: req)

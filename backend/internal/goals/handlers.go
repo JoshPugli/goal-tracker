@@ -111,3 +111,28 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.WriteHeader(status)
 	json.NewEncoder(w).Encode(v)
 }
+
+// HandleDashboard godoc
+// @Summary Dashboard aggregate
+// @Description Returns day/week/month stats and today's states in a single response
+// @Tags goals
+// @Produce json
+// @Success 200 {object} DashboardResponse
+// @Router /api/dashboard [get]
+func (h *Handlers) HandleDashboard(w http.ResponseWriter, r *http.Request) {
+    if r.Method != http.MethodGet {
+        w.WriteHeader(http.StatusMethodNotAllowed)
+        return
+    }
+    userID := "demo"
+    dayCompleted, dayTotal := h.Store.Stats(userID, "day")
+    weekCompleted, weekTotal := h.Store.Stats(userID, "week")
+    monthCompleted, monthTotal := h.Store.Stats(userID, "month")
+    resp := DashboardResponse{
+        StatsDay:   Stats{Window: "day", Completed: dayCompleted, Total: dayTotal},
+        StatsWeek:  Stats{Window: "week", Completed: weekCompleted, Total: weekTotal},
+        StatsMonth: Stats{Window: "month", Completed: monthCompleted, Total: monthTotal},
+        Today:      h.Store.TodayState(userID),
+    }
+    writeJSON(w, http.StatusOK, resp)
+}

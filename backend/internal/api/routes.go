@@ -87,6 +87,15 @@ func addGoalRoutes(
 		goalHandlers.HandleStats(w, r)
 	})
 
+	// Dashboard aggregate
+	mux.HandleFunc("/api/dashboard", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return
+		}
+		goalHandlers.HandleDashboard(w, r)
+	})
+
 	// Toggle complete for today
 	// POST /api/goals/{id}/complete, DELETE /api/goals/{id}/complete
 	mux.HandleFunc("/api/goals/", func(w http.ResponseWriter, r *http.Request) {

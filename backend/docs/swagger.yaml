@@ -25,6 +25,19 @@ definitions:
       username:
         type: string
     type: object
+  goals.DashboardResponse:
+    properties:
+      stats_day:
+        $ref: '#/definitions/goals.Stats'
+      stats_month:
+        $ref: '#/definitions/goals.Stats'
+      stats_week:
+        $ref: '#/definitions/goals.Stats'
+      today:
+        items:
+          $ref: '#/definitions/goals.TodayState'
+        type: array
+    type: object
   goals.Goal:
     properties:
       id:
@@ -143,6 +156,19 @@ paths:
       summary: User registration
       tags:
       - auth
+  /api/dashboard:
+    get:
+      description: Returns day/week/month stats and today's states in a single response
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/goals.DashboardResponse'
+      summary: Dashboard aggregate
+      tags:
+      - goals
   /api/goals:
     get:
       description: Get the catalog of goals for the current user

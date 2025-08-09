@@ -22,3 +22,11 @@ type Stats struct {
 	Completed int    `json:"completed"`
 	Total     int    `json:"total"`
 }
+
+// DashboardResponse aggregates common data needed by the client in one request
+type DashboardResponse struct {
+    StatsDay   Stats        `json:"stats_day"`
+    StatsWeek  Stats        `json:"stats_week"`
+    StatsMonth Stats        `json:"stats_month"`
+    Today      []TodayState `json:"today"`
+}
