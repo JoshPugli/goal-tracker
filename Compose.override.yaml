@@ -1,0 +1,10 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./backend:/app
+      - /app/tmp  # Don't sync tmp directory to avoid conflicts
+    environment:
+      - CGO_ENABLED=0
