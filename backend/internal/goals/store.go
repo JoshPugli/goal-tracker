@@ -6,41 +6,50 @@ import (
 )
 
 type Store struct {
-	mu          sync.RWMutex
-	goals       map[string]Goal
-	completions []Completion
+	mu                sync.RWMutex
+	goalsByUser       map[string]map[string]Goal
+	completionsByUser map[string][]Completion
 }
 
 func NewStore() *Store {
 	s := &Store{
-		goals:       make(map[string]Goal),
-		completions: make([]Completion, 0, 64),
+		goalsByUser:       make(map[string]map[string]Goal),
+		completionsByUser: make(map[string][]Completion),
 	}
-	// seed example data
-	s.goals["g1"] = Goal{ID: "g1", Name: "Drink water"}
-	s.goals["g2"] = Goal{ID: "g2", Name: "Read 20 min"}
-	s.goals["g3"] = Goal{ID: "g3", Name: "Exercise"}
-	s.completions = append(s.completions, Completion{GoalID: "g1", Date: time.Now().AddDate(0, 0, -1)})
-	s.completions = append(s.completions, Completion{GoalID: "g2", Date: time.Now().AddDate(0, 0, -6)})
-	s.completions = append(s.completions, Completion{GoalID: "zzz", Date: time.Now().AddDate(0, 0, -20)})
+	// seed example data for demo user
+	demo := "demo"
+	s.goalsByUser[demo] = map[string]Goal{
+		"g1": {ID: "g1", Name: "Drink water"},
+		"g2": {ID: "g2", Name: "Read 20 min"},
+		"g3": {ID: "g3", Name: "Exercise"},
+	}
+	now := time.Now()
+	s.completionsByUser[demo] = []Completion{
+		{GoalID: "g1", Date: now},                    // today
+		{GoalID: "g2", Date: now.AddDate(0, 0, -1)},  // yesterday
+		{GoalID: "g2", Date: now.AddDate(0, 0, -6)},  // last week
+		{GoalID: "g3", Date: now.AddDate(0, 0, -20)}, // last month
+		{GoalID: "g1", Date: now.AddDate(0, 0, -8)},  // ~ last week
+	}
 	return s
 }
 
-func (s *Store) ListGoals() []Goal {
+func (s *Store) ListGoals(userID string) []Goal {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	out := make([]Goal, 0, len(s.goals))
-	for _, g := range s.goals {
+	userGoals := s.goalsByUser[userID]
+	out := make([]Goal, 0, len(userGoals))
+	for _, g := range userGoals {
 		out = append(out, g)
 	}
 	return out
 }
 
-func (s *Store) IsCompletedToday(goalID string) bool {
+func (s *Store) IsCompletedToday(userID, goalID string) bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	today := time.Now()
-	for _, c := range s.completions {
+	for _, c := range s.completionsByUser[userID] {
 		if c.GoalID == goalID && sameDay(c.Date, today) {
 			return true
 		}
@@ -48,13 +57,14 @@ func (s *Store) IsCompletedToday(goalID string) bool {
 	return false
 }
 
-func (s *Store) ToggleCompleteToday(goalID string, done bool) {
+func (s *Store) ToggleCompleteToday(userID, goalID string, done bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	today := time.Now()
+	comps := s.completionsByUser[userID]
 	// remove any existing today completion
 	idx := -1
-	for i, c := range s.completions {
+	for i, c := range comps {
 		if c.GoalID == goalID && sameDay(c.Date, today) {
 			idx = i
 			break
@@ -62,26 +72,28 @@ func (s *Store) ToggleCompleteToday(goalID string, done bool) {
 	}
 	if idx >= 0 {
 		// uncomplete first
-		s.completions = append(s.completions[:idx], s.completions[idx+1:]...)
+		comps = append(comps[:idx], comps[idx+1:]...)
 	}
 	if done {
-		s.completions = append(s.completions, Completion{GoalID: goalID, Date: today})
+		comps = append(comps, Completion{GoalID: goalID, Date: today})
 	}
+	s.completionsByUser[userID] = comps
 }
 
-func (s *Store) TodayState() []TodayState {
+func (s *Store) TodayState(userID string) []TodayState {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	out := make([]TodayState, 0, len(s.goals))
-	for _, g := range s.goals {
-		out = append(out, TodayState{Goal: g, Completed: s.isCompletedTodayLocked(g.ID)})
+	userGoals := s.goalsByUser[userID]
+	out := make([]TodayState, 0, len(userGoals))
+	for _, g := range userGoals {
+		out = append(out, TodayState{Goal: g, Completed: s.isCompletedTodayLocked(userID, g.ID)})
 	}
 	return out
 }
 
-func (s *Store) isCompletedTodayLocked(goalID string) bool {
+func (s *Store) isCompletedTodayLocked(userID, goalID string) bool {
 	today := time.Now()
-	for _, c := range s.completions {
+	for _, c := range s.completionsByUser[userID] {
 		if c.GoalID == goalID && sameDay(c.Date, today) {
 			return true
 		}
@@ -89,12 +101,12 @@ func (s *Store) isCompletedTodayLocked(goalID string) bool {
 	return false
 }
 
-func (s *Store) Stats(window string) (completed int, total int) {
+func (s *Store) Stats(userID string, window string) (completed int, total int) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	total = len(s.goals)
+	total = len(s.goalsByUser[userID])
 	now := time.Now()
-	for _, c := range s.completions {
+	for _, c := range s.completionsByUser[userID] {
 		switch window {
 		case "day":
 			if sameDay(c.Date, now) {

@@ -14,12 +14,14 @@ func NewHandlers(store *Store) *Handlers {
 }
 
 func (h *Handlers) HandleListGoals(w http.ResponseWriter, r *http.Request) {
-	goals := h.Store.ListGoals()
+	userID := "demo" // TODO: derive from auth context
+	goals := h.Store.ListGoals(userID)
 	writeJSON(w, http.StatusOK, goals)
 }
 
 func (h *Handlers) HandleToday(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, h.Store.TodayState())
+	userID := "demo"
+	writeJSON(w, http.StatusOK, h.Store.TodayState(userID))
 }
 
 func (h *Handlers) HandleStats(w http.ResponseWriter, r *http.Request) {
@@ -27,7 +29,8 @@ func (h *Handlers) HandleStats(w http.ResponseWriter, r *http.Request) {
 	if window == "" {
 		window = "day"
 	}
-	completed, total := h.Store.Stats(window)
+	userID := "demo"
+	completed, total := h.Store.Stats(userID, window)
 	writeJSON(w, http.StatusOK, Stats{Window: window, Completed: completed, Total: total})
 }
 
@@ -35,12 +38,13 @@ func (h *Handlers) HandleStats(w http.ResponseWriter, r *http.Request) {
 // DELETE /api/goals/{id}/complete -> unmark complete today
 func (h *Handlers) HandleToggleComplete(w http.ResponseWriter, r *http.Request) {
 	id := lastPath(r.URL.Path)
+	userID := "demo"
 	switch r.Method {
 	case http.MethodPost:
-		h.Store.ToggleCompleteToday(id, true)
+		h.Store.ToggleCompleteToday(userID, id, true)
 		w.WriteHeader(http.StatusNoContent)
 	case http.MethodDelete:
-		h.Store.ToggleCompleteToday(id, false)
+		h.Store.ToggleCompleteToday(userID, id, false)
 		w.WriteHeader(http.StatusNoContent)
 	default:
 		w.WriteHeader(http.StatusMethodNotAllowed)
