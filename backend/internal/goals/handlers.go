@@ -76,6 +76,7 @@ func (h *Handlers) HandleCreateGoal(w http.ResponseWriter, r *http.Request) {
 }
 
 // HandleGetGoals godoc
+
 // @Summary Get user's goals
 // @Description Get all active goals for the authenticated user
 // @Tags goals
